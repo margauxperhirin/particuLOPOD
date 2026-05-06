@@ -46,6 +46,7 @@ if(!require("infotheo")){install.packages("infotheo")}
 if(!require("qpdf")){install.packages("qpdf")}
 if(!require("hillR")){install.packages("hillR")}
 
+if(!require("randomForestSRC")){install.packages("randomForestSRC")} # For RF
 
 # --- Seed
 set.seed(123)

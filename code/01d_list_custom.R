@@ -34,8 +34,9 @@ list_custom <- function(DATA_SOURCE,
   
   # --- 2. Verify presence of mandatory columns
   # --- 2.1. Define the required columns for analysis
-  names_qc <- c("scientificname", "worms_id", "decimallatitude", "decimallongitude", 
-                "depth", "year", "month", "measurementvalue", "measurementunit", "taxonrank")
+  names_qc <- c("worms_id", "decimallatitude", "decimallongitude", 
+                "depth", "year", "month", "measurementunit", "taxonrank", 
+                "psd1", "psd2", "psd3")
   
   # --- 2.2. Check which required columns are present in the data
   names_df <- df %>% dplyr::select(any_of(names_qc)) %>% names()
@@ -43,16 +44,15 @@ list_custom <- function(DATA_SOURCE,
   # --- 2.3. Inform the user if mandatory columns are missing and stop the function
   if (length(names_qc) != length(names_df)) {
     message("The data table must contain the following columns, with one row per sample: \n
-        - scientificname : taxonomic name of the species/taxon \n
         - worms_id : AphiaID or other identifier for the species/taxon \n
         - decimallatitude : latitude of the sample in decimal degrees (-90 to +90) \n
         - decimallongitude : longitude of the sample in decimal degrees (-180 to +180) \n
         - depth : sample depth in meters \n
         - year : year of sampling (integer) \n
         - month : month of sampling (integer) \n
-        - measurementvalue : recorded value for the sample (numeric or string, e.g., 'present') \n
         - measurementunit : units of the measurement value \n
-        - taxonrank : taxonomic rank (e.g., species, genus, order...)")
+        - taxonrank : taxonomic rank (e.g., species, genus, order...) \n
+        - PSD1/2/3 : coefficients to predict")
     
     return(NULL) # Exit the function if columns are missing
   }
@@ -77,8 +77,10 @@ list_custom <- function(DATA_SOURCE,
     dplyr::filter(
       depth >= SAMPLE_SELECT$TARGET_MIN_DEPTH & depth <= SAMPLE_SELECT$TARGET_MAX_DEPTH, # Filter by depth range
       year >= SAMPLE_SELECT$START_YEAR & year <= SAMPLE_SELECT$STOP_YEAR, # Filter by year range
-      !is.na(measurementvalue), # Remove rows with missing measurement values
-      !grepl("abs|Abs", measurementvalue) # Remove rows where the measurement value indicates absence
+      !is.na(psd1), # Remove rows with missing PSD1 values
+      !is.na(psd2), # Remove rows with missing PSD2 values
+      !is.na(psd3), # Remove rows with missing PSD3 values
+      # !grepl("abs|Abs", measurementvalue) # Remove rows where the measurement value indicates absence
     ) %>%
     distinct() %>% # Ensure unique rows (if duplicates are present)
     group_by(scientificname) %>% # Group by taxon name to count occurrences

@@ -1,6 +1,6 @@
 ## **particuLOPOD - Adaped pipeline of CEPHALOPOD for multi-outputs**
 
-This branch adds the possibly to predict a multi-output (vector of 3 values) in the CEPHALOPOD habitat modelling pipeline, developed for the Ecosystem - Workbench of the Bluecloud2026 E.U. project by Schickele et al. 2025.**
+This branch adds the possibly to predict a multi-output (vector of 3 values) in the CEPHALOPOD habitat modelling pipeline, developed for the Ecosystem - Workbench of the Bluecloud2026 E.U. project by Schickele et al. 2025.
 
 This wad developped for Perhirin et al. (in prep.) to predict 3 coefficients together in the same models. 
 
@@ -39,6 +39,9 @@ This wad developped for Perhirin et al. (in prep.) to predict 3 coefficients tog
         - PSD2 : second coefficient to predict
   
         - PSD3 : third coefficient to predict  
+
+
+An example of a dataset in the right shape can be found in the data folder.
 
 
 **What was modified?**

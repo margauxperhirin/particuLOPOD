@@ -43,6 +43,7 @@ This wad developped for Perhirin et al. (in prep.) to predict 3 coefficients tog
 
 **What was modified?**
 
+* 00_config: addition of the package *randomforestSRC* 
 * 01d_list_custom: psd1, psd2 and psd3 in the required columns
 * 03d_query_custom: psd1, psd2 and psd3 in Y but removed in S
 * 04_query_env: creation of normalised predictors and their parameters for MLP (stacked in QUERY under X_norm and X_norm_params)

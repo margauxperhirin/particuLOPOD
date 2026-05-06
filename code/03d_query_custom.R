@@ -37,9 +37,10 @@ query_custom <- function(FOLDER_NAME = NULL, QUERY = NULL){
   } else if (CALL$DATA_TYPE == "continuous") {
     # --- 2.2. For continuous biomass data, filter measurement values
     Y <- CALL$LIST_BIO %>% 
-      dplyr::filter(worms_id %in% !!SP_SELECT) %>% 
-      dplyr::select(measurementvalue)
-  } else if (CALL$DATA_TYPE == "proportions") {
+      dplyr::filter(worms_id %in% !!SP_SELECT) %>%
+      dplyr::select("psd1", "psd2", "psd3")
+    
+    } else if (CALL$DATA_TYPE == "proportions") {
     # --- 2.3. For proportions data, pivot the table to wide format and normalize
     target_proportions <- CALL$LIST_BIO %>% 
       dplyr::filter(worms_id %in% !!SP_SELECT) %>% 
@@ -59,7 +60,7 @@ query_custom <- function(FOLDER_NAME = NULL, QUERY = NULL){
     # --- 3.1. Filter sample data, exclude non-relevant columns, and convert to numeric
     S <- CALL$LIST_BIO %>% 
       dplyr::filter(worms_id %in% !!SP_SELECT) %>% 
-      dplyr::select(-any_of(c("measurementvalue", "worms_id", "taxonrank", "scientificname", "nb_occ"))) %>%
+      dplyr::select(-any_of(c("psd1", "psd2", "psd3", "worms_id", "taxonrank", "scientificname", "nb_occ"))) %>%
       mutate(across(c(decimallatitude, decimallongitude, month), as.numeric),
              ID = row_number())  # Add a unique ID for each sample
   } else if (CALL$DATA_TYPE == "proportions") {

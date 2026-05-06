@@ -192,10 +192,25 @@ query_env <- function(FOLDER_NAME = NULL, SUBFOLDER_NAME = NULL) {
     save(CALL, file = paste0(project_wd, "/output/", FOLDER_NAME, "/CALL.RData"))
   }
   
+  # --- 8.5. Create normalized predictors (X_norm) specifically for algorithms like MLP
+  # We use the scale() function to center (mean = 0) and scale (sd = 1) the variables.
+  X_scaled <- scale(X)
+  X_norm <- as.data.frame(X_scaled)
+  
+  # Extract the scaling parameters (mean and standard deviation)
+  # This is CRITICAL because you will need these exact values to normalize 
+  # your rasters before making spatial predictions with the MLP later.
+  norm_params <- list(
+    means = attr(X_scaled, "scaled:center"),
+    sds   = attr(X_scaled, "scaled:scale")
+  )
+  
   # --- 9. Save updated query data
   QUERY[["Y"]] <- Y
   QUERY[["S"]] <- S
   QUERY[["X"]] <- X
+  QUERY[["X_norm"]] <- X_norm                 
+  QUERY[["X_norm_params"]] <- norm_params     
   
   if (nrow(Y) >= CALL$SAMPLE_SELECT$MIN_SAMPLE && (nrow(Y) / ncol(Y)) > 1) {
     QUERY[["eval"]][["SAMPLE_SIZE"]] <- TRUE
@@ -216,4 +231,3 @@ query_env <- function(FOLDER_NAME = NULL, SUBFOLDER_NAME = NULL) {
   }
   
 } # END FUNCTION
-

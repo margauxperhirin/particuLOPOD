@@ -17,16 +17,27 @@ This wad developped for Perhirin et al. (in prep.) to predict 3 coefficients tog
 * RF and MLP are the ONLY models that can be run in particuLOPOD
 
 * your dataset must now contain the following variables:
+  
         - worms_id : AphiaID or other identifier for the species/taxon
+  
         - decimallatitude : latitude of the sample in decimal degrees (-90 to +90)
+  
         - decimallongitude : longitude of the sample in decimal degrees (-180 to +180)
+  
         - depth : sample depth in meters
+  
         - year : year of sampling (integer)
+  
         - month : month of sampling (integer)
+  
         - measurementunit : units of the measurement value
+  
         - taxonrank : taxonomic rank (e.g., species, genus, order...)
-        - PSD1 : first coefficient to predict  
-        - PSD2 : second coefficient to predict  
+  
+        - PSD1 : first coefficient to predict
+  
+        - PSD2 : second coefficient to predict
+  
         - PSD3 : third coefficient to predict  
 
 

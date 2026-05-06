@@ -43,27 +43,37 @@ pseudo_abs <- function(FOLDER_NAME = NULL,
     
     # --- 2.1. Set up plot file and layout
     pdf(paste0(project_wd,"/output/",FOLDER_NAME,"/",SUBFOLDER_NAME,"/01_observations.pdf"))
-    par(mfrow = c(2,2), mar = c(7,3,7,3))
+    par(mfrow = c(3,3))
     
-    # --- 2.2. Geographical plot for continuous data
-    # We plot an artificial land with the scale of the observation first, for the legend
     if(CALL$DATA_TYPE == "continuous"){
-      plot_scale <- quantile(QUERY$Y$measurementvalue, 0.95)
-      tmp <- (land-9998)*plot_scale
-      tmp[1] <- 0
-      plot(tmp, col = inferno_pal(100), main = paste("OBSERVATIONS \n samples for ID:", SUBFOLDER_NAME), 
-           sub = paste("Nb. of observations after binning:",  nrow(QUERY$S)), type = "continuous")
-      plot(land, col = "antiquewhite4", legend=FALSE, add = TRUE)
+      for (var in c("psd1","psd2","psd3")){
+        plot_scale <- quantile(QUERY$Y[[var]], 0.95, na.rm = TRUE) # définir échelle propre à chaque PSD
+        tmp_r <- (land - 9998) * plot_scale
+        tmp_r[1] <- 0 # raster pour légende
+        
+        plot(tmp_r,
+             col = inferno_pal(100),
+             main = paste("OBSERVATIONS -", var, "\n samples for ID:", SUBFOLDER_NAME),
+             sub = paste("Nb. of observations after binning:", nrow(QUERY$S)),
+             type = "continuous")
+        
+        plot(land, col = "antiquewhite4", legend = FALSE, add = TRUE)
+        
+        tmp <- QUERY$Y[[var]] # valeurs observées
+        tmp[tmp > plot_scale] <- plot_scale
+        
+        points(QUERY$S$decimallongitude,
+               QUERY$S$decimallatitude,
+               col = col_numeric("inferno", domain = c(0, plot_scale))(tmp),
+               pch = 20,
+               cex = 0.6) # points
+        
+        box("figure", col = "black", lwd = 1)
+      }
       
-      # Plot observations with color scale based on measurement value
-      tmp <- QUERY$Y$measurementvalue
-      tmp[tmp>plot_scale] <- plot_scale
-      points(QUERY$S$decimallongitude, QUERY$S$decimallatitude, 
-             col = col_numeric("inferno", domain = c(0, plot_scale))(tmp),
-             pch = 20, cex = 0.6)
-      box("figure", col="black", lwd = 1)
     } # end if continuous
-
+    
+    
     # --- 2.3. Geographical plot for proportion type
     if(CALL$DATA_TYPE == "proportions"){
       plot(land, col = "antiquewhite4", legend=FALSE, main = paste("OBSERVATIONS \n samples for ID:", SUBFOLDER_NAME), 
@@ -74,10 +84,15 @@ pseudo_abs <- function(FOLDER_NAME = NULL,
     } # end if proportions
     
     # --- 2.4. Histogram of values
-    hist(unlist(QUERY$Y), breaks = 25, col = scales::alpha("black", 0.5), main = "OBSERVATIONS \n Histogram of raw values", 
-         xlab = paste(CALL$DATA_TYPE, "observed values"))
-    box("figure", col="black", lwd = 1)
-    
+    for (var in c("psd1","psd2","psd3")){
+      hist(QUERY$Y[[var]],
+           breaks = 25,
+           col = scales::alpha("black", 0.5),
+           main = paste("OBSERVATIONS -", var, "\n Histogram"),
+           xlab = paste(var, "values"))
+      box("figure", col="black", lwd = 1)
+    }
+
     # --- 2.5. Longitude and latitude profile
     hist(QUERY$S$decimallongitude, breaks = seq(-200,200, 20), col = scales::alpha("black", 0.5), 
          main = "OBSERVATIONS \n Longitudinal spectrum", xlab = "Longitude")

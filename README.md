@@ -2,11 +2,13 @@
 
 This branch adds the possibly to predict a multi-output (vector of 3 values) in the CEPHALOPOD habitat modelling pipeline, developed for the Ecosystem - Workbench of the Bluecloud2026 E.U. project by Schickele et al. 2025.
 
-This wad developped for Perhirin et al. (in prep.) to predict 3 coefficients together in the same models. 
+This was developped for Perhirin et al. (in prep.) to predict 3 coefficients together in the same models. 
 
 **Main changes**
 
 * possibility to predict 3 outputs from one model
+  
+* possibility to transform the 3-output target directly (correction by minimum)
 
 * normalisation of environmental data before running the MPL
 
@@ -50,11 +52,12 @@ An example of a dataset in the right shape can be found in the data folder.
 * 01d_list_custom: psd1, psd2 and psd3 in the required columns
 * 03d_query_custom: psd1, psd2 and psd3 in Y but removed in S
 * 04_query_env: creation of normalised predictors and their parameters for MLP (stacked in QUERY under X_norm and X_norm_params)
-* 05_pseudo_abs: psd1, psd2 and psd3 instead of one variable for the plots in 01_observations.pdf but no modification concerning pseudo-absences
+* 05_pseudo_abs: psd1, psd2 and psd3 instead of one variable for the plots in 01_observations.pdf but no modification concerning pseudo-absences, modification of the transformation function implementation
+* 06_query_check: modification of the transformation function implementation
 * 09b_model_continuous: addition of specific cases when model = RF or model = MLP
 * 10b_eval_continuous: addition of specific cases when model = RF or model = MLP, computation of R2 and RMSE standard deviations and means (among the 3 coefficients)
-* 11b_proj_continuous: addition of specific cases when model = RF or model = MLP for the loops on bootstraps and on months
-* 12a_standardmaps: supplementary loop on the 3 coefficients
+* 11b_proj_continuous: addition of specific cases when model = RF or model = MLP for the loops on bootstraps and on months, modification of the transformation function implementation (and reverse transformation)
+* 12a_standardmaps: supplementary loop on the 3 coefficients, correction of the filter on observations to allow negative values
 
 
-Last modification on the 6th of May 2026.
+Last modification on the 27th of May 2026.

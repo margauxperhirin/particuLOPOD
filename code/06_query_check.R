@@ -33,14 +33,15 @@ query_check <- function(FOLDER_NAME = NULL,
   # As it is based on a random forest, it works on quantiles, hence does not need transformed values.
   if(CALL$DATA_TYPE == "continuous" & !is.null(CALL$TARGET_TRANSFORMATION)){
     source(CALL$TARGET_TRANSFORMATION)
-    Y <- target_transformation(x = QUERY$Y$measurementvalue, REVERSE = FALSE)$out %>% as.data.frame()
-  } else {
+    Y <-  target_transformation_psd(x = QUERY$Y, REVERSE = FALSE) %>%
+      as.data.frame()
+    } else {
     Y <- QUERY$Y %>% as.data.frame()
   } # end if
   
   # --- 2. Early return if the target has unique values (e.g., only 0)
   if(CALL$DATA_TYPE != "proportions"){
-    if(length(unique(QUERY$Y$measurementvalue)) == 1){
+    if(length(unique(QUERY$Y$psd1)) == 1){
       message("QUERY CHECK: the target seem to have only unique values. It is therefore not possible to model a response. ")
       return(NA)
     } # return if unique target
@@ -52,7 +53,13 @@ query_check <- function(FOLDER_NAME = NULL,
     if(CALL$DATA_TYPE == "presence_only"){
       message("--- Cannot perform outlier analysis on presence - pseudo absence data ---")
     } else {
-      to_remove <- outlier_iqr_col(Y, n = 2.5) %>% as.vector()
+      to_remove <- unique(
+        unlist(lapply(Y, function(col){
+        outlier_iqr_col(col, n = 2.5)
+      }
+      ))
+      )
+      
       if(length(to_remove > 0)){
         Y <- dplyr::slice(as.data.frame(Y), -to_remove) # we slice the transformed dataset as well for the plots
         QUERY$Y <- dplyr::slice(as.data.frame(QUERY$Y), -to_remove)
@@ -167,69 +174,91 @@ query_check <- function(FOLDER_NAME = NULL,
     QUERY$SUBFOLDER_INFO$ENV_VAR <- cor_to_keep
   } # END if env_cor TRUE
   
-  # # --- 6. RFE (recursive feature elimination) importance analysis
+  # --- 6. RFE (recursive feature elimination) importance analysis
   # Done with a Random forest using the method developed in the "Caret" library
   if(CALL$RFE == TRUE){
-    if(CALL$DATA_TYPE == "proportions"){
-      message("A RFE predictor selection is not possible for proportion data, please select carefully your predictors \n")
+    
+    # Sécurité : caret::rfe ne gère pas les cibles multiples (multi-output).
+    # On désactive la RFE si données proportionnelles ou multi-cibles.
+    if(CALL$DATA_TYPE == "proportions" | ncol(QUERY$Y) > 1){
+      message("--- RFE : Predictor selection is not supported for proportion or multi-target data. Skipping RFE. \n")
     } else {
-      # --- 6.1. Initialize data and control parameters
-      # Input dataframe with target and features bind together
-      rfe_df <- cbind(QUERY$Y, QUERY$X[,QUERY$SUBFOLDER_INFO$ENV_VAR])
       
-      # Modify rfFuncs : we modify the selectSize code to use pickSizeBest instead of a 1.5 tolerance around the best
-      rfFuncs$selectSize <- function(...) pickSizeBest(...) # modify functions
-      rfe_control <- rfeControl(functions=rfFuncs, 
-                                method="cv", number=5, rerank = FALSE) # assign to the RFE setup
+      # --- 6.1. Initialize data and control parameters
+      # On sépare explicitement X et Y pour éviter toute fuite de données
+      x_rfe <- QUERY$X[, QUERY$SUBFOLDER_INFO$ENV_VAR, drop = FALSE]
+      y_rfe <- QUERY$Y[, 1] # On s'assure d'avoir un vecteur cible unique
+      
+      # Création d'une copie locale de rfFuncs pour ne pas altérer le package caret
+      my_rfFuncs <- caret::rfFuncs
+      my_rfFuncs$selectSize <- function(...) caret::pickSizeBest(...) 
+      
+      rfe_control <- caret::rfeControl(functions = my_rfFuncs, 
+                                       method = "cv", number = 5, rerank = FALSE)
       
       # --- 6.2. Run the RFE algorithm
       message(paste(Sys.time(), "--- RFE : Fitting the Recursive Feature Exclusion algorithm \n"))
-      rfe_fit <- rfe(rfe_df[,-1], rfe_df[,1], sizes = c(1:ncol(rfe_df[,-1])), rfeControl = rfe_control)
-
+      rfe_fit <- caret::rfe(x = x_rfe, 
+                            y = y_rfe, 
+                            sizes = c(1:ncol(x_rfe)), 
+                            rfeControl = rfe_control)
+      
       # --- 6.3. Extract the relevant predictors
       # --- 6.3.1. Compute the moving average loss as a percentage
-      loss_ma_pct <- ma(rfe_fit$results$RMSE, n = 10)
-      loss_ma_pct <- (loss_ma_pct[-1] - loss_ma_pct[-length(loss_ma_pct)])/loss_ma_pct[-length(loss_ma_pct)]*100
+      # CORRECTION : Si le nombre de variables est < 10, on ajuste la fenêtre du moving average
+      window_size <- min(10, nrow(rfe_fit$results))
+      loss_ma_pct <- ma(rfe_fit$results$RMSE, n = window_size)
       
-      # --- 6.3.3. Find the first minimum or <1% loss percentage
-      # Consider all variables if "id" is NA, due to moving average not working for low variable number
-      id <- which(loss_ma_pct > -1)[1]
+      if(length(loss_ma_pct) > 1) {
+        loss_ma_pct <- (loss_ma_pct[-1] - loss_ma_pct[-length(loss_ma_pct)])/loss_ma_pct[-length(loss_ma_pct)]*100
+        # --- 6.3.3. Find the first minimum or <1% loss percentage
+        id <- which(loss_ma_pct > -1)[1]
+      } else {
+        id <- NA # Sécurité si pas assez de variables pour calculer une perte
+      }
+      
+      # Consider all variables if "id" is NA
       if(is.na(id) == TRUE){
-        message("--- The RFE moving window could not find a minimum loss, please considering
-                removing this option from your run due to insufficient number of environmental variables")
+        message("--- The RFE moving window could not find a minimum loss. 
+                Keeping all pre-selected environmental variables.")
         id <- length(QUERY$SUBFOLDER_INFO$ENV_VAR)
       }
-
-      # --- 6.4. Compute variable importance // as you would do for a normal random forest
+      
+      # --- 6.4. Compute variable importance 
+      # CORRECTION : On fait la moyenne des folds, car rfe_fit$variables contient 1 ligne par fold par variable
       rfe_vip <- rfe_fit$variables %>%
-        dplyr::select(var, Overall) %>%
+        dplyr::group_by(var) %>%
+        dplyr::summarise(Overall = mean(Overall, na.rm = TRUE), .groups = "drop") %>%
+        dplyr::arrange(dplyr::desc(Overall)) %>%
         dplyr::mutate(var = forcats::fct_reorder(as.factor(var), Overall, .desc = TRUE))
-  
+      
       # --- 6.5. Extract the selected environmental variables
-      rfe_to_keep <- rfe_vip$var[1:id] %>% as.character()
-      message(paste("--- RFE : Selecting", rfe_to_keep, "\n"))
-
+      rfe_to_keep <- as.character(rfe_vip$var[1:id])
+      message(paste("--- RFE : Selecting", paste(rfe_to_keep, collapse = ", "), "\n"))
+      
       # --- 6.6. Produce an information plot
       pdf(paste0(project_wd, "/output/", FOLDER_NAME, "/", SUBFOLDER_NAME,"/03_feature_pre_selection.pdf"))
       par(mfrow = c(2,1), mar = c(4,3,2,15))
+      
       # --- Variable importance
       boxplot(rfe_vip$Overall ~ rfe_vip$var,
               main = paste("ENVIRONMENTAL PREDICTORS \n A-priori importance for ID:", SUBFOLDER_NAME),
               xlab = "", ylab = "", axes = FALSE, outline = FALSE, horizontal = TRUE,
-              col = c(rep("#1F867B", id), rep("gold", ncol(features)-id)), cex.main = 0.7, cex.lab = 0.7, cex.axis = 0.7)
-      axis(side = 4, at = 1:length(levels(rfe_vip$var)), labels = levels(rfe_vip$var), las = 2, cex.axis = 0.6)
+              col = c(rep("#1F867B", id), rep("gold", ncol(x_rfe)-id)), cex.main = 0.7, cex.lab = 0.7, cex.axis = 0.7)
+      axis(side = 4, at = 1:nlevels(rfe_vip$var), labels = levels(rfe_vip$var), las = 2, cex.axis = 0.6)
       axis(side = 1, at = c(seq(0, 15, 5), seq(0, 100, 20)), labels = c(seq(0, 15, 5), seq(0, 100, 20)), cex.axis = 0.7)
       title(xlab = "Estimated importance (%)", line = 2, cex.lab = 0.7)
       abline(v = c(seq(0, 15, 5), seq(0, 100, 20)), lty = "longdash", col = "gray50")
       box()
       box("figure", col="black", lwd = 1)
+      
       # --- Number of variables
       par(mar = c(6,3,2,15))
       plot(rfe_fit$results$RMSE, rfe_fit$results$Variables, pch = 21, cex = 2, cex.axis = 0.7, cex.main = 0.7, cex.lab = 0.7,
-           bg = c(rep("#1F867B", id), rep("gold", ncol(features)-id)), col = "black",
+           bg = c(rep("#1F867B", id), rep("gold", ncol(x_rfe)-id)), col = "black",
            main = paste("ENVIRONMENTAL PREDICTORS \n Optimal number for ID:", SUBFOLDER_NAME),
            ylab = "", xlab = "")
-      axis(side = 4, at = 1:length(levels(rfe_vip$var)), labels = levels(rfe_vip$var), las = 2, cex.axis = 0.6)
+      axis(side = 4, at = 1:nlevels(rfe_vip$var), labels = levels(rfe_vip$var), las = 2, cex.axis = 0.6)
       title(xlab = "Loss metric (RMSE)", ylab = "Nb. of considered predictors", line = 2, cex.lab = 0.7)
       grid(col = "gray50")
       mtext(side = 1, line = 5, "Feature selection by recursive feature exclusion procedure (Random Forest algorithm). The upper panel presents the ranked feature 
@@ -238,14 +267,14 @@ The optimal number of features considered conresponds to the number after which 
 average of 5) by 1 %. The considered features are in green. The ones that do not bring additional information are discarded and 
 displayed in yellow.", cex = 0.6, adj = 0)
       dev.off()
-
+      
       # --- 6.7. Update ENV_VAR and clean memory
       QUERY$SUBFOLDER_INFO$ENV_VAR <- rfe_to_keep
       
-      rm(rfe_df, rfe_fit, rfe_control, rfe_to_keep, rfFuncs, rfe_vip)
+      rm(x_rfe, y_rfe, rfe_fit, rfe_control, rfe_to_keep, my_rfFuncs, rfe_vip)
       gc()
-
-    } # if not proportions
+      
+    } # if not proportions or multi-target
   } # END if RFE TRUE
 
   # --- 7. MESS analysis
@@ -279,7 +308,7 @@ displayed in yellow.", cex = 0.6, adj = 0)
   
   # --- 8. Verification of feature pre-selection
   # --- 8.1. Initialize QC and necessary data
-  univ_feature_check0 <- univ_feature_check # Save for the. plot legend
+  univ_feature_check0 <- univ_feature_check # Save for the plot legend
   univ_feature_check <- univ_feature_check %>% 
     dplyr::filter(varname %in% !!QUERY$SUBFOLDER_INFO$ENV_VAR)
   

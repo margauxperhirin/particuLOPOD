@@ -23,10 +23,10 @@ proj_continuous <- function(QUERY, MODEL, CALL){
   if(CALL$DATA_TYPE == "continuous" & !is.null(CALL$TARGET_TRANSFORMATION)){
     message("--- PROJ : Transforming the target variable according to the provided function")
     source(CALL$TARGET_TRANSFORMATION) # Load the transformation function
-    tmp <- target_transformation(QUERY$Y$measurementvalue, REVERSE = FALSE) # Transformation
-    Y <- data.frame(target_transformation(QUERY$Y$measurementvalue, REVERSE = FALSE)$out) # New target
-    colnames(Y) <- "measurementvalue"
-    QUERY[["target_transformation"]][["yj_obj"]] <- tmp$yj_obj # Save the transformation parameters
+    Y <-  target_transformation_psd(x = QUERY$Y, REVERSE = FALSE) %>%
+      as.data.frame()
+
+    QUERY[["target_transformation"]][["yj_obj"]] <- NULL # Save the transformation parameters
   } else {
     Y <- QUERY$Y
   }
@@ -214,11 +214,10 @@ proj_continuous <- function(QUERY, MODEL, CALL){
     # --- 4.6. Reverse transformation
     if(CALL$DATA_TYPE == "continuous" & !is.null(CALL$TARGET_TRANSFORMATION)){
       message("--- PROJ : reverse transformation of the target")
-      y_hat <- apply(y_hat, -1, function(x){
-        x <- target_transformation(x, REVERSE = TRUE, PARAM = QUERY$target_transformation)
-      })
+      y_hat <- target_transformation_psd(x = y_hat, REVERSE = TRUE) 
+      
     } # end if transformation
-    
+
     # --- 5. Cut spatial discontinuities
     if (!is.null(CALL$CUT)) {
       y_hat <- apply(y_hat, c(2, 3), function(x) {

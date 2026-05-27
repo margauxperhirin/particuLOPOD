@@ -47,9 +47,10 @@ pseudo_abs <- function(FOLDER_NAME = NULL,
     
     if(CALL$DATA_TYPE == "continuous"){
       for (var in c("psd1","psd2","psd3")){
-        plot_scale <- quantile(QUERY$Y[[var]], 0.95, na.rm = TRUE) # définir échelle propre à chaque PSD
-        tmp_r <- (land - 9998) * plot_scale
-        tmp_r[1] <- 0 # raster pour légende
+        plot_scale_low <- quantile(QUERY$Y[[var]], 0.05, na.rm = TRUE) # définir échelle propre à chaque PSD
+        plot_scale_high <- quantile(QUERY$Y[[var]], 0.95, na.rm = TRUE) # définir échelle propre à chaque PSD
+        tmp_r <- plot_scale_low + (land - 9998) * (plot_scale_high - plot_scale_low)
+        tmp_r[1] <- plot_scale_low # pour la légende
         
         plot(tmp_r,
              col = inferno_pal(100),
@@ -60,11 +61,12 @@ pseudo_abs <- function(FOLDER_NAME = NULL,
         plot(land, col = "antiquewhite4", legend = FALSE, add = TRUE)
         
         tmp <- QUERY$Y[[var]] # valeurs observées
-        tmp[tmp > plot_scale] <- plot_scale
+        tmp[tmp > plot_scale_high] <- plot_scale_high
+        tmp[tmp < plot_scale_low] <- plot_scale_low
         
         points(QUERY$S$decimallongitude,
                QUERY$S$decimallatitude,
-               col = col_numeric("inferno", domain = c(0, plot_scale))(tmp),
+               col = col_numeric("inferno", domain = c(plot_scale_low, plot_scale_high))(tmp),
                pch = 20,
                cex = 0.6) # points
         

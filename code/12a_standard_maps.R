@@ -100,6 +100,7 @@ standard_maps <- function(FOLDER_NAME = NULL, SUBFOLDER_NAME = NULL,
     }) %>% unlist() %>% quantile(0.95, na.rm = TRUE)
     
     if(is.na(plot_scale) || plot_scale <= 0) plot_scale <- 1 
+    
   } else {
     plot_scale <- 1
   }
@@ -148,7 +149,7 @@ standard_maps <- function(FOLDER_NAME = NULL, SUBFOLDER_NAME = NULL,
       for(j in seq_along(MONTH)){
         
         # Mean value - CORRECTION : On ne divise plus par plot_scale pour avoir la vraie valeur de la cible
-        val <- apply(val_raw[,,MONTH[[j]]], 1, function(x)(x = mean(x, na.rm = TRUE)))
+        val <- apply(val_raw[,,j], 1, function(x)(x = mean(x, na.rm = TRUE)))
         r_m <- terra::rast(r0, vals = val)
         
         # --- CORRECTION DYNAMIQUE : On calcule val_min et val_max APRES avoir r_m
@@ -160,7 +161,7 @@ standard_maps <- function(FOLDER_NAME = NULL, SUBFOLDER_NAME = NULL,
           val <- apply(val_raw[,,MONTH[[j]]], c(1,3), function(x)(x = sd(x, na.rm = TRUE))) %>%
             apply(1, function(x)(x = mean(x, na.rm = TRUE)))
         } else {
-          val <- apply(val_raw[,,MONTH[[j]]], 1, function(x)(x = sd(x, na.rm = TRUE)))
+          val <- apply(val_raw[,,j], 1, function(x)(x = sd(x, na.rm = TRUE)))
         }
         
         r_sd <- terra::rast(r0, vals = val)
@@ -168,7 +169,7 @@ standard_maps <- function(FOLDER_NAME = NULL, SUBFOLDER_NAME = NULL,
         r_sd[r_sd <= 0] <- 1e-10 
         
         # MESS
-        r_mess <- QUERY$MESS[[MONTH[[j]]]]*-1
+        r_mess <- QUERY$MESS[[j]]*-1
         if(nlyr(r_mess) > 1){r_mess <- app(r_mess, mean, na.rm = TRUE)}
         r_mess[r_mess<0] <- 1e-10 
         r_mess[r_mess>100] <- 100 
@@ -195,12 +196,12 @@ standard_maps <- function(FOLDER_NAME = NULL, SUBFOLDER_NAME = NULL,
         box("figure", col="black", lwd = 1)
         
         # Observations
-        plot(r_m > quantile(terra::values(r_m, mat=FALSE), 0.75, na.rm = TRUE), col = c("white","gray80"), legend=FALSE, main = "Observations")
+        plot(r_m > quantile(terra::values(r_m, mat=FALSE), 0.75, na.rm = TRUE), col = c("white","gray80"), legend = FALSE, main = "Observations")
         plot(land, col = "antiquewhite4", legend=FALSE, add = TRUE)
         box("figure", col="black", lwd = 1)
         
-        tmp_obs <- QUERY$S[which(obs_vec > 0),]
-        obs_vec_sub <- obs_vec[which(obs_vec > 0)]
+        tmp_obs <- QUERY$S
+        obs_vec_sub <- obs_vec
         
         # CORRECTION DYNAMIQUE : Les couleurs des points s'alignent sur val_min et val_max
         if(CALL$DATA_TYPE == "continuous"){
